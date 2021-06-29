@@ -10,10 +10,11 @@ import (
 
 // Block keeps block headers
 type Block struct {
-	Timestamp int64
-	Data      []byte
-	PrevBlock []byte
-	hash      []byte
+	Timestamp     int64
+	Data          []byte
+	PrevBlockHash []byte
+	Hash          []byte
+	Nonce         int
 }
 
 // SetHash calculates and sets block hash
@@ -21,7 +22,7 @@ func (b *Block) SetHash() {
 	h := sha256.New()
 	timestamp := []byte(strconv.FormatInt(b.Timestamp, 10))
 	var data []byte
-	data = append(data, b.PrevBlock...)
+	data = append(data, b.PrevBlockHash...)
 	data = append(data, b.Data...)
 	data = append(data, timestamp...)
 
@@ -29,12 +30,18 @@ func (b *Block) SetHash() {
 	if err != nil {
 		log.Panic(err)
 	}
-	b.hash = h.Sum(nil)
+	b.Hash = h.Sum(nil)
 }
 
 // NewBlock creates and returns Block
-func NewBlock(data string, prevBlock []byte) *Block {
-	block := &Block{time.Now().Unix(), []byte(data), prevBlock, []byte("")}
+func NewBlock(data string, prevBlockHash []byte) *Block {
+	block := &Block{time.Now().Unix(), []byte(data), prevBlockHash, []byte{}, 0}
+
+	pow := NewProofOfWork(block)
+	nonce, hash := pow.Run()
+
+	block.Hash = hash[:]
+	block.Nonce = nonce
 	block.SetHash()
 	return block
 }
@@ -51,8 +58,8 @@ type Blockchain struct {
 
 // AddBlock saves provided data as a block in the blockchain
 func (bc *Blockchain) AddBlock(data string) {
-	prevBlock := bc.blocks[len(bc.blocks)-1]
-	newBlock := &Block{time.Now().Unix(), []byte(data), prevBlock.hash, []byte("")}
+	prevBlockHash := bc.blocks[len(bc.blocks)-1]
+	newBlock := &Block{time.Now().Unix(), []byte(data), prevBlockHash.Hash, []byte(""), 0}
 	newBlock.SetHash()
 	bc.blocks = append(bc.blocks, newBlock)
 }
@@ -70,6 +77,6 @@ func main() {
 
 	for _, block := range bc.blocks {
 		fmt.Printf("%s\n", block.Data)
-		fmt.Printf("%x\n", block.hash)
+		fmt.Printf("%x\n", block.Hash)
 	}
 }
